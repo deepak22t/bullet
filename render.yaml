@@ -1,0 +1,22 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Dashboard → New → Blueprint → connect this repo → apply.
+# After apply, open the web service → Environment → set secret keys (never commit .env).
+
+services:
+  - type: web
+    name: story-analyzer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: ANALYSIS_MODE
+        value: auto
+      - key: LLM_PROVIDER
+        value: auto
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
