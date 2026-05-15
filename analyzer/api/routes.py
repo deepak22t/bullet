@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request
-import json
 from analyzer.schemas.analysis import AnalysisResponse, AnalyzeRequest
-from analyzer.services.orchestrator import new_request_id, run_analysis
+from analyzer.services.orchestrator import new_request_id, resolve_text_model, run_analysis
 
 router = APIRouter(tags=["analysis"])
 
@@ -14,23 +13,20 @@ async def analyze_script(request: Request, body: AnalyzeRequest) -> AnalysisResp
     rid = getattr(request.state, "request_id", None) or new_request_id()
 
     cache = getattr(request.app.state, "cache", None)
+    model = resolve_text_model(settings, llm_kind)
+    payload = {
+        "req": body.model_dump(),
+        "llm_kind": llm_kind,
+        "analysis_mode": settings.analysis_mode,
+        "llm_provider": settings.llm_provider,
+        "model": model,
+    }
 
-    # ✅ Use payload (NOT string key)
-    payload = body.model_dump()
-    print("cache payload:", payload)
-
-    # ✅ Step 1: Try cache
     if cache:
         cached_data = await cache.get_analysis(payload)
-        print("cached_data:", cached_data)
-
         if cached_data is not None:
-            print("returning cached response")
             cached_data.meta.request_id = rid
             return cached_data
-
-    # ✅ Step 2: Run fresh analysis
-    print("running fresh analysis")
 
     res = await run_analysis(
         llm=llm,
@@ -43,9 +39,7 @@ async def analyze_script(request: Request, body: AnalyzeRequest) -> AnalysisResp
     if res is None:
         raise ValueError("run_analysis returned None")
 
-    # ✅ Step 3: Store in cache (PASS OBJECT, NOT DICT)
     if cache:
         await cache.set_analysis(payload, res)
-        print("cache set")
 
     return res

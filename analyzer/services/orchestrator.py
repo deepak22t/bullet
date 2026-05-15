@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from typing import Any
@@ -22,6 +23,8 @@ from analyzer.schemas.analysis import (
 )
 from analyzer.services.normalize import format_script
 
+logger = logging.getLogger(__name__)
+
 
 def resolve_text_model(settings: Settings, llm_kind: str) -> str:
     if llm_kind == "google":
@@ -29,7 +32,8 @@ def resolve_text_model(settings: Settings, llm_kind: str) -> str:
             return settings.llm_model
         return settings.gemini_model
     return settings.llm_model
-
+def generate_cache_key(script: str) -> str:
+    return hashlib.sha256(script.encode()).hexdigest()
 
 def _fallback_emotion(message: str) -> EmotionAnalysis:
     return EmotionAnalysis(
@@ -115,6 +119,13 @@ async def run_analysis(
     summary: str
     if isinstance(sum_r, Exception):
         errors["summary"] = repr(sum_r)
+        logger.exception(
+            "summary engine failed request_id=%s llm_kind=%s model=%s",
+            request_id,
+            llm_kind,
+            model,
+            exc_info=sum_r,
+        )
         summary = "Summary unavailable."
     else:
         summary = sum_r
@@ -134,14 +145,14 @@ async def run_analysis(
         errors=errors,
     )
 
-    return AnalysisResponse(
+    response = AnalysisResponse(
         summary=summary,
         emotion=emotion,
         engagement=engagement,
         improvements=improvements,
         meta=meta,
     )
-
+    return response
 
 def new_request_id() -> str:
     return str(uuid.uuid4())

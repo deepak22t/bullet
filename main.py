@@ -17,6 +17,11 @@ from analyzer.config import get_settings
 from analyzer.llm.client import build_llm_client, llm_client_kind
 from analyzer.services.cache import CacheService
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parent

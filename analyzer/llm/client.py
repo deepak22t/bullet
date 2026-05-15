@@ -3,14 +3,20 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Literal, Protocol, runtime_checkable
-
+import asyncio
 import httpx
 
 from analyzer.config import Settings
 
 logger = logging.getLogger(__name__)
 
+
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # seconds
+
+
 LlmTask = Literal["emotion", "engagement", "recommendations", "summary"]
+
 
 
 @runtime_checkable
@@ -45,15 +51,33 @@ class OpenAiJsonClient:
                 {"role": "user", "content": user},
             ],
         }
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        resp = await self._http.post(url, headers=headers, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        if not isinstance(content, str):
-            raise ValueError("Unexpected LLM response shape")
-        return json.loads(content)
 
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        }
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = await self._http.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+
+                if not isinstance(content, str):
+                    raise ValueError("Invalid response format from LLM")
+
+                # ✅ Safe JSON parsing
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Invalid JSON returned by LLM: {content}")
+
+            except Exception as e:
+                if attempt == MAX_RETRIES - 1:
+                    raise RuntimeError(f"LLM request failed after retries: {e}")
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1))
 
 class GoogleGeminiJsonClient:
     """Google AI Studio / Gemini generateContent with JSON response MIME type."""
@@ -123,11 +147,15 @@ class MockLlmClient:
                         "label": "setup",
                         "summary": "A long-delayed message reopens a wound.",
                         "dominant_emotions": ["unease"],
+                        "transition": "No prior context; unease builds from silence breaking.",
+                        "intensity_0_100": 48,
                     },
                     {
                         "label": "revelation",
                         "summary": "New information reframes blame for a past accident.",
                         "dominant_emotions": ["shock", "catharsis"],
+                        "transition": "Unease spikes into shock as truth is revealed, then eases into catharsis.",
+                        "intensity_0_100": 82,
                     },
                 ],
                 "notes": (

@@ -1,16 +1,23 @@
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class AnalyzeRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    scene: str = Field(..., min_length=1, max_length=8000)
-    dialogue: str = Field(..., min_length=1, max_length=8000)
+    input_text: str = Field(..., min_length=1, max_length=20000)
 
-
+    @field_validator("input_text")
+    def not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v
+        
 class EmotionalArcBeat(BaseModel):
     label: str = Field(..., description="Beat label, e.g. setup, confrontation, turn")
     summary: str
     dominant_emotions: list[str] = Field(default_factory=list)
+    transition: str | None = None
+    intensity_0_100: int | None = Field(default=None, ge=0, le=100)
 
 
 class EmotionAnalysis(BaseModel):
@@ -38,7 +45,7 @@ class EngagementAnalysis(BaseModel):
 
 
 class ImprovementSuggestion(BaseModel):
-    category: str = Field(..., description="pacing|conflict|dialogue|emotional_impact|other")
+    category: Literal["pacing", "conflict", "dialogue", "emotional_impact", "other"]
     suggestion: str
     rationale: str | None = None
 
