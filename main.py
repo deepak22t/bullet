@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from analyzer.api.routes import router as v1_router
 from analyzer.config import get_settings
 from analyzer.llm.client import build_llm_client, llm_client_kind
+from analyzer.services.cache import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,11 @@ async def lifespan(app: FastAPI):
 
     app.state.llm = build_llm_client(app.state.http, settings)
     app.state.llm_kind = llm_client_kind(app.state.llm)
+    app.state.cache = CacheService(settings)
 
     logger.info("startup complete environment=%s", settings.environment)
     yield
+    await app.state.cache.close()
     await app.state.http.aclose()
 
 

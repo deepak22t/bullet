@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # LLM
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
-    openai_base_url: str = Field(default="https://api.openai.com/v1", validation_alias="OPENAI_BASE_URL")
+    openai_base_url: str = Field(default="https://openrouter.ai/api/v1/chat/completions", validation_alias="OPENAI_BASE_URL")
     llm_model: str = Field(default="gpt-4o-mini", validation_alias="LLM_MODEL")
     # Google Generative Language API (Gemini). Use env file — never commit keys.
     google_api_key: str | None = Field(
@@ -31,6 +31,11 @@ class Settings(BaseSettings):
 
     http_timeout_seconds: float = Field(default=45.0, validation_alias="HTTP_TIMEOUT_SECONDS")
     max_concurrent_llm_calls: int = Field(default=3, validation_alias="MAX_CONCURRENT_LLM_CALLS")
+    
+    # Redis
+    redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
+    redis_ttl_seconds: int = Field(default=3600, validation_alias="REDIS_TTL_SECONDS")
+
 
     title_max_chars: int = 200
     scene_max_chars: int = 8000

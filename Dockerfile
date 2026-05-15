@@ -4,8 +4,8 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirenments.txt /app/requirenments.txt
-RUN pip install --no-cache-dir -r /app/requirenments.txt
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY analyzer /app/analyzer
 COPY static /app/static

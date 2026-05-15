@@ -3,266 +3,125 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Story Analyzer</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #0b0d12;
-        --panel: #121622;
-        --muted: #9aa3b2;
-        --text: #e8ecf4;
-        --accent: #6ea8fe;
-        --danger: #f87171;
-        --ok: #34d399;
-        --border: #222838;
-      }
-      @media (prefers-color-scheme: light) {
-        :root {
-          --bg: #f6f7fb;
-          --panel: #ffffff;
-          --muted: #5b6472;
-          --text: #111827;
-          --accent: #2563eb;
-          --danger: #b91c1c;
-          --ok: #047857;
-          --border: #e5e7eb;
-        }
-      }
-      body {
-        margin: 0;
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
-          "Apple Color Emoji", "Segoe UI Emoji";
-        background: var(--bg);
-        color: var(--text);
-      }
-      .wrap {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 28px 18px 48px;
-      }
-      header h1 {
-        margin: 0 0 6px;
-        font-size: 22px;
-        letter-spacing: -0.02em;
-      }
-      header p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.5;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 14px;
-        margin-top: 18px;
-      }
-      @media (min-width: 980px) {
-        .grid {
-          grid-template-columns: 1fr 1fr;
-          align-items: start;
-        }
-      }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 14px;
-      }
-      label {
-        display: block;
-        font-size: 12px;
-        color: var(--muted);
-        margin: 10px 0 6px;
-      }
-      input,
-      textarea {
-        width: 100%;
-        box-sizing: border-box;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--text);
-        padding: 10px 10px;
-        outline: none;
-      }
-      textarea {
-        min-height: 140px;
-        resize: vertical;
-        line-height: 1.45;
-        font-size: 14px;
-      }
-      .row {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-        margin-top: 12px;
-      }
-      button {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-weight: 600;
-        cursor: pointer;
-        background: var(--accent);
-        color: white;
-      }
-      button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-      .pill {
-        font-size: 12px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        color: var(--muted);
-      }
-      .pill strong {
-        color: var(--text);
-      }
-      .error {
-        color: var(--danger);
-        white-space: pre-wrap;
-        line-height: 1.45;
-      }
-      .ok {
-        color: var(--ok);
-      }
-      h2 {
-        margin: 0 0 10px;
-        font-size: 15px;
-      }
-      pre {
-        margin: 0;
-        padding: 12px;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        overflow: auto;
-        max-height: 520px;
-        font-size: 12px;
-        line-height: 1.45;
-      }
-      .muted {
-        color: var(--muted);
-      }
-      ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-      li {
-        margin: 8px 0;
-        line-height: 1.45;
-      }
-    </style>
+    <title>StoryPulse | Golden Edition</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body>
-    <div class="wrap">
-      <header>
-        <h1>Story Analyzer</h1>
-        <p>
-          Paste a short script. The service runs parallel analysis passes (summary, emotion, engagement,
-          recommendations) for lower latency, then returns one structured response.
-        </p>
-      </header>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="brand">
+          <i data-lucide="crown" class="icon-accent"></i>
+          <span>StoryPulse</span>
+        </div>
+        
+        <div class="input-section">
+          <div class="input-group">
+            <label>Script Title</label>
+            <input id="title" value="The Last Message" />
+          </div>
 
-      <div class="grid">
-        <div class="card">
-          <label for="title">Title</label>
-          <input id="title" autocomplete="off" value="The Last Message" />
+          <div class="input-group">
+            <label>Scene Premise</label>
+            <textarea id="scene">Riya receives a message from her ex-boyfriend after five years.</textarea>
+          </div>
 
-          <label for="scene">Scene</label>
-          <textarea id="scene">Riya receives a message from her ex-boyfriend after five years.</textarea>
-
-          <label for="dialogue">Dialogue</label>
-          <textarea id="dialogue">Riya: Why now?
+          <div class="input-group">
+            <label>Dialogue</label>
+            <textarea id="dialogue" class="tall">Riya: Why now?
 Arjun: Because today I learned the truth.
 Riya: What truth?
 Arjun: That the accident wasn't your fault.</textarea>
-
-          <div class="row">
-            <button id="go" type="button">Analyze</button>
-            <span id="status" class="pill"><strong>Idle</strong> · waiting for input</span>
           </div>
-          <p id="err" class="error" style="margin-top: 12px; display: none"></p>
+
+          <button id="analyzeBtn" class="primary-btn">
+            <i data-lucide="sparkles"></i>
+            <span>Analyze</span>
+          </button>
+          
+          <div id="status" class="status-indicator">
+            <span class="dot"></span>
+            <span id="statusText">System Ready</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <div id="emptyState" class="empty-state">
+          <i data-lucide="layout" size="40"></i>
+          <p>Awaiting Script Data</p>
         </div>
 
-        <div class="card">
-          <h2>Results</h2>
-          <div id="summary" class="muted" style="margin-bottom: 12px"></div>
-          <div id="highlights" class="muted" style="margin-bottom: 12px"></div>
-          <pre id="out">{ }</pre>
+        <div id="resultsView" class="results-view hidden">
+          <!-- TOP ROW: Summary & Metrics -->
+          <header class="results-header">
+            <div class="summary-card glass">
+              <div class="label">Script Summary</div>
+              <p id="summaryText"></p>
+            </div>
+            
+            <div class="metric-card glass">
+              <i data-lucide="trending-up" size="16" class="icon-accent"></i>
+              <div class="metric-value" id="engagementScore">0%</div>
+              <div class="metric-label">Engagement</div>
+            </div>
+
+            <div class="metric-card glass">
+              <i data-lucide="music" size="16" class="icon-accent"></i>
+              <div class="metric-value" id="overallTone" style="font-size: 14px; text-transform: capitalize;">-</div>
+              <div class="metric-label">Overall Tone</div>
+            </div>
+          </header>
+
+          <!-- MIDDLE ROW: Arc (Left) & Sidebar (Right) -->
+          <div class="main-display-grid">
+            <div class="arc-panel panel glass">
+              <div class="panel-header">
+                <i data-lucide="activity"></i>
+                <h3>Emotional Arc</h3>
+              </div>
+              <div id="arcTimeline" class="timeline"></div>
+            </div>
+
+            <div class="side-col">
+              <section class="panel glass">
+                <div class="panel-header">
+                  <i data-lucide="zap"></i>
+                  <h3>Impact Factors</h3>
+                </div>
+                <div id="factorsList" class="factors-list"></div>
+              </section>
+
+              <section id="cliffhangerCard" class="panel glass cliff-panel hidden">
+                <div class="panel-header">
+                  <i data-lucide="flame"></i>
+                  <h3>Cliffhanger</h3>
+                </div>
+                <div id="cliffhangerContent"></div>
+              </section>
+            </div>
+          </div>
+
+          <!-- BOTTOM ROW: Suggestions (Horizontal Grid) -->
+          <section class="suggestions-panel panel glass">
+            <div class="panel-header">
+              <i data-lucide="edit-3"></i>
+              <h3>Suggested Improvements</h3>
+            </div>
+            <div id="improvementsList" class="improvement-grid"></div>
+          </section>
+          
+          <details class="raw-data">
+            <summary>Raw Data</summary>
+            <pre id="rawOutput"></pre>
+          </details>
         </div>
-      </div>
+      </main>
     </div>
 
-    <script>
-      const $ = (id) => document.getElementById(id);
-      const status = $("status");
-      const err = $("err");
-
-      function setBusy(b) {
-        $("go").disabled = b;
-        status.innerHTML = b
-          ? "<strong>Working</strong> · engines running in parallel"
-          : "<strong>Idle</strong> · ready";
-      }
-
-      function showError(msg) {
-        err.style.display = msg ? "block" : "none";
-        err.textContent = msg || "";
-      }
-
-      async function analyze() {
-        showError("");
-        setBusy(true);
-        const payload = {
-          title: $("title").value.trim(),
-          scene: $("scene").value.trim(),
-          dialogue: $("dialogue").value.trim(),
-        };
-        const t0 = performance.now();
-        try {
-          const res = await fetch("/v1/analyze", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const rid = res.headers.get("x-request-id") || "";
-          const bodyText = await res.text();
-          let json;
-          try {
-            json = JSON.parse(bodyText);
-          } catch {
-            throw new Error(bodyText.slice(0, 800) || `HTTP ${res.status}`);
-          }
-          if (!res.ok) {
-            const detail = json && json.detail ? JSON.stringify(json.detail) : bodyText.slice(0, 800);
-            throw new Error(`HTTP ${res.status}: ${detail}`);
-          }
-          $("out").textContent = JSON.stringify(json, null, 2);
-          const ms = Math.round(performance.now() - t0);
-          const partial = json.meta && json.meta.partial;
-          $("summary").innerHTML =
-            `<span class="${partial ? "" : "ok"}">` +
-            (partial ? "Partial result" : "OK") +
-            `</span> · <span class="muted">${ms}ms client</span> · <span class="muted">server ${json.meta?.latency_ms ?? "?"}ms</span> · <span class="muted">request ${rid}</span>`;
-          const score = json.engagement?.engagement_score_0_100;
-          const tone = json.emotion?.overall_tone;
-          $("highlights").innerHTML =
-            `<div><strong>Engagement</strong>: ${score ?? "—"} / 100</div>` +
-            `<div style="margin-top:6px"><strong>Tone</strong>: ${tone ?? "—"}</div>`;
-        } catch (e) {
-          showError(String(e && e.message ? e.message : e));
-          $("out").textContent = "{}";
-          $("summary").textContent = "";
-          $("highlights").textContent = "";
-        } finally {
-          setBusy(false);
-        }
-      }
-
-      $("go").addEventListener("click", analyze);
-    </script>
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
   </body>
 </html>

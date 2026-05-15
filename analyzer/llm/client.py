@@ -35,7 +35,7 @@ class OpenAiJsonClient:
         if not key:
             raise RuntimeError("OPENAI_API_KEY is not set")
 
-        url = f"{self._settings.openai_base_url.rstrip('/')}/chat/completions"
+        url = f"{self._settings.openai_base_url}"
         payload = {
             "model": model,
             "temperature": 0.2,
