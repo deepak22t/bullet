@@ -1,4 +1,4 @@
-# Bullet: Story Analyzer 🎬
+# Bullet: Story Analyzer
 
 This system provides a fast, asynchronous web service that analyzes narrative scripts. It evaluates emotional arcs, estimates reader engagement, summarizes the plot, and provides actionable storytelling improvements.
 
@@ -50,3 +50,4 @@ The application has been heavily refactored to utilize **Native Structured Outpu
    ```bash
    uvicorn main:app --reload
    Open your browser and navigate to http://localhost:8000.
+<img width="1536" height="1023" alt="ai_system architecture" src="https://github.com/user-attachments/assets/13bda088-743d-4dc8-ade3-dd877dbe1204" />
