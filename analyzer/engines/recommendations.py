@@ -1,24 +1,29 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from pydantic import BaseModel, Field
 
 from analyzer.llm.client import LlmClient
 from analyzer.schemas.analysis import ImprovementSuggestion
 
 logger = logging.getLogger(__name__)
 
-SYSTEM = """You are a professional story editor.
-Return ONLY valid JSON:
-{
-  "improvements": [
-    {"category": "pacing|conflict|dialogue|emotional_impact|other", "suggestion": string, "rationale": string|null}
-  ]
-}
-Rules:
-- Provide 3-6 improvements.
-- Each suggestion must be actionable and specific to the script.
-- categories must be one of the allowed literals."""
+class RecommendationsOutput(BaseModel):
+    improvements: list[ImprovementSuggestion] = Field(
+        description="A list of 3 to 6 actionable storytelling improvements.",
+        min_length=2,
+        max_length=6
+    )
+
+# 2. Enhanced Prompt: Added constraints to stop long dialogue generation
+SYSTEM = """You are an elite Hollywood script doctor.
+
+Guidelines for your analysis:
+1. Be Extremely Concise: Keep every 'suggestion' short, direct, and impactful (MAXIMUM 15-20 words). 
+2. No Scripting: Do NOT write long paragraphs or generate example dialogue lines. Tell the user what to fix, don't write it for them.
+3. Be Specific: Point directly to the moment or action that needs adjustment.
+4. Categorize Correctly: Strictly assign to 'pacing', 'conflict', 'dialogue', 'emotional_impact', or 'other'.
+5. Short Rationale: Keep the 'rationale' to a single, brief sentence explaining the 'why'."""
 
 
 async def analyze_recommendations(
@@ -30,44 +35,25 @@ async def analyze_recommendations(
             system=SYSTEM,
             user=script,
             model=model,
-            task="recommendations"
+            task="recommendations",
+            schema_model=RecommendationsOutput
         )
 
-        items = _extract_improvements(raw)
-        if items is None:
-            raise ValueError("Invalid LLM response format")
+        output = RecommendationsOutput.model_validate(raw)
 
-        out: list[ImprovementSuggestion] = []
+        unique_improvements: list[ImprovementSuggestion] = []
+        seen_suggestions = set()
 
-        seen = set()
-        allowed_categories = {"pacing", "conflict", "dialogue", "emotional_impact", "other"}
+        for item in output.improvements:
+            key = item.suggestion.strip().lower()
+            if key not in seen_suggestions:
+                seen_suggestions.add(key)
+                unique_improvements.append(item)
 
-        for it in items:
-            if not isinstance(it, dict):
-                continue
+        if len(unique_improvements) < 2:
+            raise ValueError("Too few valid suggestions generated.")
 
-            try:
-                cat = it.get("category")
-                if isinstance(cat, str) and cat not in allowed_categories:
-                    it["category"] = "other"
-                validated = ImprovementSuggestion.model_validate(it)
-
-                # filter duplicates
-                key = validated.suggestion.strip().lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                out.append(validated)
-
-            except Exception:
-                continue
-
-        # ensure minimum quality
-        if len(out) < 2:
-            raise ValueError("Too few valid suggestions")
-
-        return out
+        return unique_improvements
 
     except Exception as e:
         logger.exception(
@@ -76,45 +62,22 @@ async def analyze_recommendations(
             len(script),
             e,
         )
+        
+        # Fallback text ko bhi sort aur impactful banaya gaya hai
         return [
             ImprovementSuggestion(
                 category="dialogue",
-                suggestion="Add one specific line that reveals subtext (fear, guilt, or defensiveness) instead of generic questions.",
-                rationale="Specificity makes dialogue feel character-driven and increases tension.",
+                suggestion="Replace direct questions with a physical action showing hesitation.",
+                rationale="Specificity builds subtext and increases tension.",
             ),
             ImprovementSuggestion(
                 category="pacing",
-                suggestion="Insert a short pause/beat right before the key reveal.",
-                rationale="A beat increases suspense and gives the turning point more impact.",
+                suggestion="Insert a short beat right before the key truth is revealed.",
+                rationale="Pauses increase suspense and emotional impact.",
             ),
             ImprovementSuggestion(
                 category="emotional_impact",
-                suggestion="Show a physical reaction immediately after the reveal (silence, breath, gesture).",
-                rationale="Physical cues make emotions more believable and cinematic.",
+                suggestion="End the scene on a character's physical reaction.",
+                rationale="Forces the audience to feel the weight of the reveal.",
             ),
         ]
-
-
-def _extract_improvements(raw: object) -> list[dict[str, Any]] | None:
-    if isinstance(raw, dict):
-        direct = raw.get("improvements")
-        if isinstance(direct, list):
-            return [x for x in direct if isinstance(x, dict)]
-
-        for key in ("suggestions", "recommendations", "items"):
-            v = raw.get(key)
-            if isinstance(v, list):
-                return [x for x in v if isinstance(x, dict)]
-
-        nested = raw.get("analysis") or raw.get("result") or raw.get("data")
-        if isinstance(nested, dict):
-            direct2 = nested.get("improvements")
-            if isinstance(direct2, list):
-                return [x for x in direct2 if isinstance(x, dict)]
-
-        return None
-
-    if isinstance(raw, list):
-        return [x for x in raw if isinstance(x, dict)]
-
-    return None

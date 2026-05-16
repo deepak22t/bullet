@@ -94,6 +94,7 @@ function displayResult(data) {
 
   const factorsList = $("factorsList");
   if (factorsList) {
+    // Dynamic Factors mapping for the list view
     const factors = data?.engagement?.factors || [];
     factorsList.innerHTML = factors.map((f) => {
       const score = Number(f.score_0_100 ?? 0);
@@ -162,7 +163,9 @@ function escapeHtml(s) {
 
 function humanizeFactorName(name) {
   const n = String(name || "").replaceAll("_", " ").trim();
-  return n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
+  if (!n) return "";
+  // Capitalize every word for a premium UI look (e.g. "Mystery Hook" instead of "Mystery hook")
+  return n.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 function fitCanvas(canvas) {
@@ -259,7 +262,7 @@ function drawBarChart(canvas, labels, values, barWidthRatio = 0.58) {
   const n = Math.max(1, values.length);
   const slot = chartW / n;
   const barW = Math.max(10 * ratio, slot * barWidthRatio);
-  const gap = Math.max(6 * ratio, slot - barW);
+  // gap calculation can just be based on slot & barW
 
   ctx.fillStyle = "rgba(255,255,255,0.10)";
   for (let i = 0; i <= 4; i++) {
@@ -459,9 +462,10 @@ function renderCharts(data) {
   const score = Number(data?.engagement?.engagement_score_0_100 ?? 0);
   drawGauge(gauge, score);
 
+  // Dynamic factors logic (supports 3, 4, 5+ factors easily)
   const factors = data?.engagement?.factors || [];
-  const fLabels = factors.slice(0, 4).map((f) => humanizeFactorName(f.name || ""));
-  const fValues = factors.slice(0, 4).map((f) => Number(f.score_0_100 ?? 0));
+  const fLabels = factors.slice(0, 6).map((f) => humanizeFactorName(f.name || "")); // Slice up to 6 just to fit canvas safely
+  const fValues = factors.slice(0, 6).map((f) => Number(f.score_0_100 ?? 0));
   drawBarChart($("factorsChart"), fLabels, fValues);
 
   const emo = buildEmotionCounts(data);

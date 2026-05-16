@@ -22,21 +22,20 @@ LlmTask = Literal["emotion", "engagement", "recommendations", "summary"]
 @runtime_checkable
 class LlmClient(Protocol):
     async def complete_json(
-        self, *, system: str, user: str, model: str, task: LlmTask = "summary"
+        self, *, system: str, user: str, model: str, task: LlmTask = "summary", schema_model: Any = None
     ) -> dict[str, Any]: ...
 
 
 class OpenAiJsonClient:
-    """Isolated provider adapter: chat completions with JSON object output."""
+    """Isolated provider adapter: chat completions with JSON object/schema output."""
 
     def __init__(self, http: httpx.AsyncClient, settings: Settings) -> None:
         self._http = http
         self._settings = settings
 
     async def complete_json(
-        self, *, system: str, user: str, model: str, task: LlmTask = "summary"
+        self, *, system: str, user: str, model: str, task: LlmTask = "summary", schema_model: Any = None
     ) -> dict[str, Any]:
-        _ = task
         key = self._settings.openai_api_key
         if not key:
             raise RuntimeError("OPENAI_API_KEY is not set")
@@ -45,12 +44,24 @@ class OpenAiJsonClient:
         payload = {
             "model": model,
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
+
+        # ✅ NEW: Pydantic Structured Outputs Integration for OpenAI
+        if schema_model:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": task,
+                    "schema": schema_model.model_json_schema(),
+                    "strict": True
+                }
+            }
+        else:
+            payload["response_format"] = {"type": "json_object"}
 
         headers = {
             "Authorization": f"Bearer {key}",
@@ -68,7 +79,6 @@ class OpenAiJsonClient:
                 if not isinstance(content, str):
                     raise ValueError("Invalid response format from LLM")
 
-                # ✅ Safe JSON parsing
                 try:
                     return json.loads(content)
                 except json.JSONDecodeError:
@@ -79,8 +89,9 @@ class OpenAiJsonClient:
                     raise RuntimeError(f"LLM request failed after retries: {e}")
                 await asyncio.sleep(RETRY_DELAY * (attempt + 1))
 
+
 class GoogleGeminiJsonClient:
-    """Google AI Studio / Gemini generateContent with JSON response MIME type."""
+    """Google AI Studio / Gemini generateContent with JSON response MIME type and Schema."""
 
     def __init__(self, http: httpx.AsyncClient, settings: Settings) -> None:
         self._http = http
@@ -92,10 +103,60 @@ class GoogleGeminiJsonClient:
             return m
         return self._settings.gemini_model
 
+    def _to_gemini_schema(self, schema: dict, defs: dict = None) -> dict:
+        """
+        Magic parser: Converts strict Pydantic JSON schema into Gemini-friendly OpenAPI schema.
+        Strips $defs, resolves $ref dynamically, and uppercases types.
+        """
+        if defs is None:
+            schema = schema.copy()
+            defs = schema.pop("$defs", {})
+
+        # 1. Resolve nested references ($ref)
+        while "$ref" in schema:
+            ref_key = schema.pop("$ref").split("/")[-1]
+            schema.update(defs.get(ref_key, {}).copy())
+
+        # 2. Handle Optionals/Nullables (anyOf)
+        if "anyOf" in schema:
+            options = schema.pop("anyOf")
+            non_nulls = [opt for opt in options if opt.get("type") != "null"]
+            if non_nulls:
+                schema.update(non_nulls[0])
+            schema["nullable"] = True
+            
+            # Unpacking anyOf might reveal another $ref, so resolve again
+            while "$ref" in schema:
+                ref_key = schema.pop("$ref").split("/")[-1]
+                schema.update(defs.get(ref_key, {}).copy())
+
+        out = {}
+        for k, v in schema.items():
+            # 3. Strip keys that Gemini rejects
+            if k in ("title", "default"):
+                continue
+
+            # Recursively format dictionaries and lists
+            if isinstance(v, dict):
+                out[k] = self._to_gemini_schema(v, defs)
+            elif isinstance(v, list):
+                out[k] = [self._to_gemini_schema(i, defs) if isinstance(i, dict) else i for i in v]
+            else:
+                out[k] = v
+
+        # 4. Uppercase the data types (e.g., 'object' -> 'OBJECT', 'string' -> 'STRING')
+        if "type" in out and isinstance(out["type"], str):
+            t = out["type"].upper()
+            if t == "NULL":
+                out["nullable"] = True
+            else:
+                out["type"] = t
+
+        return out
+
     async def complete_json(
-        self, *, system: str, user: str, model: str, task: LlmTask = "summary"
+        self, *, system: str, user: str, model: str, task: LlmTask = "summary", schema_model: Any = None
     ) -> dict[str, Any]:
-        _ = task
         key = self._settings.google_api_key
         if not key:
             raise RuntimeError("GOOGLE_API_KEY (or GEMINI_API_KEY) is not set")
@@ -103,14 +164,23 @@ class GoogleGeminiJsonClient:
         mid = self._gemini_model_id(model)
         base = self._settings.google_genai_base_url.rstrip("/")
         url = f"{base}/models/{mid}:generateContent"
+        
+        generation_config = {
+            "temperature": 0.2,
+            "responseMimeType": "application/json",
+        }
+
+        # ✅ NEW: Transform Pydantic schema strictly for Gemini
+        if schema_model:
+            raw_schema = schema_model.model_json_schema()
+            generation_config["responseSchema"] = self._to_gemini_schema(raw_schema)
+
         payload = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseMimeType": "application/json",
-            },
+            "generationConfig": generation_config,
         }
+        
         resp = await self._http.post(url, params={"key": key}, json=payload)
         if resp.status_code >= 400:
             try:
@@ -130,14 +200,14 @@ class GoogleGeminiJsonClient:
 
         return json.loads(parts[0]["text"])
 
-
 class MockLlmClient:
     """Fast, deterministic path for demos, load tests, and CI without external calls."""
 
     async def complete_json(
-        self, *, system: str, user: str, model: str, task: LlmTask = "summary"
+        self, *, system: str, user: str, model: str, task: LlmTask = "summary", schema_model: Any = None
     ) -> dict[str, Any]:
-        _ = (system, user, model)
+        _ = (system, user, model, schema_model)
+        
         if task == "emotion":
             return {
                 "overall_tone": "tense, unresolved",
@@ -158,10 +228,7 @@ class MockLlmClient:
                         "intensity_0_100": 82,
                     },
                 ],
-                "notes": (
-                    "Mock response: set OPENAI_API_KEY or GOOGLE_API_KEY (and ANALYSIS_MODE=live) "
-                    "for real analysis."
-                ),
+                "notes": "Mock response: set API Keys for real analysis.",
             }
         if task == "engagement":
             return {
@@ -190,7 +257,7 @@ class MockLlmClient:
                 ],
                 "cliffhanger": {
                     "moment": "Arjun reveals the accident was not Riya's fault.",
-                    "why_it_works": "It reverses an assumed moral burden and creates a new emotional problem: what now?",
+                    "why_it_works": "It reverses an assumed moral burden and creates a new emotional problem.",
                 },
             }
         if task == "recommendations":
@@ -198,13 +265,13 @@ class MockLlmClient:
                 "improvements": [
                     {
                         "category": "dialogue",
-                        "suggestion": "Add one line of physical behavior to anchor emotion (hands, breath, silence).",
+                        "suggestion": "Add one line of physical behavior to anchor emotion.",
                         "rationale": "Increases subtext without exposition.",
                     },
                     {
                         "category": "emotional_impact",
-                        "suggestion": "Let Riya resist believing the truth for one beat before the scene turns.",
-                        "rationale": "Creates a clearer emotional arc beat between shock and acceptance.",
+                        "suggestion": "Let Riya resist believing the truth for one beat.",
+                        "rationale": "Creates a clearer emotional arc beat.",
                     },
                     {
                         "category": "pacing",
@@ -213,10 +280,12 @@ class MockLlmClient:
                     },
                 ]
             }
+            
         return {
             "summary": (
-                "Mock summary: two characters confront a delayed truth about an accident, "
-                "shifting blame and reopening unresolved feelings."
+                "Mock summary: two characters confront a delayed truth about an accident.\n"
+                "Shifting blame and reopening unresolved feelings.\n"
+                "The truth is finally revealed."
             )
         }
 
