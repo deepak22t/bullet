@@ -32,8 +32,6 @@ def resolve_text_model(settings: Settings, llm_kind: str) -> str:
             return settings.llm_model
         return settings.gemini_model
     return settings.llm_model
-def generate_cache_key(script: str) -> str:
-    return hashlib.sha256(script.encode()).hexdigest()
 
 def _fallback_emotion(message: str) -> EmotionAnalysis:
     return EmotionAnalysis(
