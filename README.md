@@ -41,3 +41,12 @@ The application has been heavily refactored to utilize **Native Structured Outpu
 1. Install dependencies:
    ```bash
    pip install -r requirements.txt
+2. Set up your environment variables (in a .env file):
+   ```bash
+   OPENAI_API_KEY=your_key_here
+   GEMINI_API_KEY=your_key_here
+   ANALYSIS_MODE=live
+3. Run the server:
+   ```bash
+   uvicorn main:app --reload
+   Open your browser and navigate to http://localhost:8000.
